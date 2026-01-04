@@ -135,6 +135,53 @@ Health check endpoint.
 }
 ```
 
+### POST/GET/DELETE `/api/TYG_delete_recipient`
+
+Deletes a contact from GoHighLevel by email address. Designed to be called from GHL webhooks.
+
+**Request Parameters**:
+- `email` (required): Email address of the contact to delete
+  - Can be provided as query parameter: `?email=user@example.com`
+  - Or in request body (JSON or URL-encoded): `{ "email": "user@example.com" }`
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "message": "Contact deleted successfully",
+  "data": {
+    "email": "user@example.com",
+    "deleted": true
+  }
+}
+```
+
+**Not Found Response** (404):
+```json
+{
+  "success": false,
+  "message": "Contact not found",
+  "data": {
+    "email": "user@example.com",
+    "deleted": false
+  }
+}
+```
+
+**Error Response** (400):
+```json
+{
+  "success": false,
+  "message": "Email parameter is required",
+  "error": "Please provide an email address in the query parameter (?email=...) or request body"
+}
+```
+
+**Usage Examples**:
+- GET: `https://your-project.vercel.app/api/TYG_delete_recipient?email=user@example.com`
+- POST (JSON): `POST /api/TYG_delete_recipient` with body `{ "email": "user@example.com" }`
+- POST (URL-encoded): `POST /api/TYG_delete_recipient` with body `email=user@example.com`
+
 ## Updating the Form
 
 **IMPORTANT**: The form must post to `/api/submit-tyg-form` - not the root URL!

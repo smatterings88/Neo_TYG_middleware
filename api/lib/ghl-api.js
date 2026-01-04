@@ -204,11 +204,40 @@ async function findOrCreateContact(email, contactData = {}) {
   return contact;
 }
 
+// Delete a contact by ID
+async function deleteContact(contactId) {
+  console.log(`[GHL] Deleting contact: ${contactId}`);
+  
+  await ghlRequest(`/contacts/${contactId}`, {
+    method: 'DELETE'
+  });
+  
+  console.log(`[GHL] Successfully deleted contact: ${contactId}`);
+  return true;
+}
+
+// Delete a contact by email (searches first, then deletes)
+async function deleteContactByEmail(email) {
+  console.log(`[GHL] Deleting contact by email: ${email}`);
+  
+  const contact = await searchContactByEmail(email);
+  
+  if (!contact) {
+    console.log(`[GHL] Contact not found with email: ${email}`);
+    return false;
+  }
+  
+  await deleteContact(contact.id);
+  return true;
+}
+
 export {
   searchContactByEmail,
   createContact,
   updateContactCustomFields,
   findOrCreateContact,
-  getCustomFieldDefinitions
+  getCustomFieldDefinitions,
+  deleteContact,
+  deleteContactByEmail
 };
 
