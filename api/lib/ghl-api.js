@@ -39,7 +39,16 @@ async function ghlRequest(endpoint, options = {}) {
       }
       
       console.error(`[GHL API] Error ${response.status}:`, errorData);
-      throw new Error(`GHL API Error: ${response.status} - ${errorData.message || response.statusText}`);
+      
+      // Provide more helpful error messages
+      if (response.status === 401) {
+        const error = new Error(`GHL API Authentication Failed (401): ${errorData.msg || errorData.message || 'Invalid API key'}. Please verify your GHL_API_KEY in Vercel environment variables.`);
+        error.code = 'AUTH_ERROR';
+        error.status = 401;
+        throw error;
+      }
+      
+      throw new Error(`GHL API Error: ${response.status} - ${errorData.msg || errorData.message || response.statusText}`);
     }
 
     const data = await response.json();
