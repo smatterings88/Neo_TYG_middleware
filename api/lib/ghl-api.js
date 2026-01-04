@@ -7,7 +7,9 @@ const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
 // Helper function to make API requests
 async function ghlRequest(endpoint, options = {}) {
   if (!GHL_API_KEY) {
-    throw new Error('GHL_API_KEY environment variable is not set');
+    const error = new Error('GHL_API_KEY environment variable is not set. Please configure it in Vercel project settings → Environment Variables.');
+    error.code = 'MISSING_API_KEY';
+    throw error;
   }
 
   const url = `${GHL_API_BASE}${endpoint}`;

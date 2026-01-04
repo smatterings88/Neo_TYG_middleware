@@ -9,13 +9,31 @@ Middleware service for handling TYG (Thank You Gram) form submissions. Deployed 
 npm install
 ```
 
-2. Configure environment variables in Vercel:
-   - `GHL_API_KEY` - Your GoHighLevel API key (required)
+2. **Configure environment variables in Vercel (REQUIRED)**:
+   
+   **⚠️ IMPORTANT**: The function will fail without these environment variables!
+   
+   - `GHL_API_KEY` - Your GoHighLevel API key (**required**)
    - `GHL_LOCATION_ID` - Your GoHighLevel location ID (optional but recommended)
-
-   To set these in Vercel:
-   - Go to your project settings → Environment Variables
-   - Add `GHL_API_KEY` and `GHL_LOCATION_ID`
+   
+   **Steps to set environment variables in Vercel**:
+   1. Go to your Vercel project dashboard
+   2. Navigate to **Settings** → **Environment Variables**
+   3. Add a new variable:
+      - **Name**: `GHL_API_KEY`
+      - **Value**: Your GoHighLevel API key
+      - **Environment**: Select all (Production, Preview, Development)
+   4. (Optional) Add `GHL_LOCATION_ID` if you have one
+   5. **Redeploy your project** after adding environment variables
+      - Go to **Deployments** tab
+      - Click the three dots on the latest deployment
+      - Select **Redeploy**
+   
+   **Getting your GoHighLevel API Key**:
+   - Log into your GoHighLevel account
+   - Go to **Settings** → **Integrations** → **API**
+   - Create a new API key with **Contacts: Read, Write** permissions
+   - Copy the key (it won't be shown again)
 
 3. Create custom fields in GoHighLevel:
    The following custom fields must exist in your GHL account:
