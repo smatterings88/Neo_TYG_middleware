@@ -11,10 +11,24 @@ import {
 } from './lib/ghl-api.js';
 
 export default async function handler(req, res) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Set CORS headers - allow all origins for now
+  // Vercel will handle CORS via vercel.json, but we also set it here for safety
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://dailyhug.com',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+  
+  // Check if origin is in allowed list, otherwise use wildcard
+  const corsOrigin = origin && allowedOrigins.some(allowed => origin.includes(allowed))
+    ? origin
+    : '*';
+  
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {

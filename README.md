@@ -119,6 +119,8 @@ Health check endpoint.
 
 ## Updating the Form
 
+**IMPORTANT**: The form must post to `/api/submit-tyg-form` - not the root URL!
+
 To use this middleware endpoint, update the form's JavaScript to point to your Vercel deployment:
 
 For local development:
@@ -128,13 +130,15 @@ const WEBHOOK_URL = 'http://localhost:3000/api/submit-tyg-form';
 
 For production (Vercel):
 ```javascript
-const WEBHOOK_URL = 'https://your-project.vercel.app/api/submit-tyg-form';
+const WEBHOOK_URL = 'https://neo-tyg-middleware.vercel.app/api/submit-tyg-form';
 ```
 
 Or if you have a custom domain:
 ```javascript
 const WEBHOOK_URL = 'https://your-domain.com/api/submit-tyg-form';
 ```
+
+**Note**: Make sure the URL ends with `/api/submit-tyg-form`. Posting to the root URL (`/`) will result in a 404 error.
 
 ## GoHighLevel Integration
 
