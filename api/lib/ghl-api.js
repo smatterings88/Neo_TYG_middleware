@@ -256,6 +256,34 @@ async function deleteContactByEmail(email) {
   return true;
 }
 
+// Add tags to a contact
+async function addTagsToContact(contactId, tags) {
+  console.log(`[GHL] Adding tags to contact: ${contactId}`, tags);
+  
+  // Ensure tags is an array
+  const tagsArray = Array.isArray(tags) ? tags : [tags];
+  
+  // Get current contact to preserve existing tags
+  const currentContact = await ghlRequest(`/contacts/${contactId}`);
+  const contact = currentContact.contact || currentContact;
+  
+  // Merge existing tags with new tags (avoid duplicates)
+  const existingTags = contact.tags || [];
+  const newTags = [...new Set([...existingTags, ...tagsArray])];
+  
+  const data = await ghlRequest(`/contacts/${contactId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      tags: newTags
+    })
+  });
+  
+  const updatedContact = data.contact || data;
+  console.log(`[GHL] Added tags to contact successfully. Tags: ${newTags.join(', ')}`);
+  
+  return updatedContact;
+}
+
 export {
   searchContactByEmail,
   createContact,
@@ -263,6 +291,7 @@ export {
   findOrCreateContact,
   getCustomFieldDefinitions,
   deleteContact,
-  deleteContactByEmail
+  deleteContactByEmail,
+  addTagsToContact
 };
 

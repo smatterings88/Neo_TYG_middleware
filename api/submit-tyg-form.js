@@ -7,7 +7,8 @@ function isValidEmail(email) {
 // Import GHL API functions
 import {
   findOrCreateContact,
-  updateContactCustomFields
+  updateContactCustomFields,
+  addTagsToContact
 } from './lib/ghl-api.js';
 
 export default async function handler(req, res) {
@@ -143,7 +144,11 @@ export default async function handler(req, res) {
         tyg_subscribedailyhug: submissionData.subscribeDailyHug ? 'true' : 'false'
       });
 
-      // Step 3: Find or create recipient contact
+      // Step 3: Add tag to sender contact
+      console.log('[TYG Form] Adding tag to sender contact...');
+      await addTagsToContact(senderContact.id, 'tyg--> sender');
+
+      // Step 4: Find or create recipient contact
       console.log('[TYG Form] Processing recipient contact...');
       const recipientContact = await findOrCreateContact(
         submissionData.recipientEmail,

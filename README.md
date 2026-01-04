@@ -112,8 +112,9 @@ Handles form submissions from the TYG form.
 **Note**: The form handler automatically:
 1. Searches for or creates a contact in GoHighLevel using the sender's email
 2. Updates the sender contact with custom fields containing form data
-3. Creates a contact in GoHighLevel for the recipient
-4. Logs all actions to the console
+3. Adds the tag "tyg--> sender" to the sender contact
+4. Creates a contact in GoHighLevel for the recipient
+5. Logs all actions to the console
 
 **Error Response** (400):
 ```json
