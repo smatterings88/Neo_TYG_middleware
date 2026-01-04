@@ -51,8 +51,33 @@ async function ghlRequest(endpoint, options = {}) {
       throw new Error(`GHL API Error: ${response.status} - ${errorData.msg || errorData.message || response.statusText}`);
     }
 
-    const data = await response.json();
-    return data;
+    // Check if response has content and try to parse as JSON
+    // Some endpoints (like DELETE) return plain text like "OK"
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text();
+    
+    // If no content, return success indicator
+    if (!responseText || responseText.trim() === '') {
+      return { success: true };
+    }
+    
+    // If content-type indicates JSON, parse it
+    if (contentType.includes('application/json')) {
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        // If JSON parse fails but we expected JSON, throw error
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
+      }
+    }
+    
+    // For non-JSON responses (like "OK" for DELETE), return as text
+    // This handles DELETE operations that return plain text
+    return { 
+      success: true, 
+      message: responseText,
+      raw: responseText 
+    };
   } catch (error) {
     console.error(`[GHL API] Request failed:`, error.message);
     throw error;
