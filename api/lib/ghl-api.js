@@ -365,40 +365,44 @@ async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
   // Use the correct GHL API endpoint for sending emails
-  // Try services.leadconnectorhq.com first (newer API)
+  // Try rest.gohighlevel.com first since we know it works with our API key
+  const emailPayload = {
+    type: 'Email',
+    contactId: contactId,
+    templateId: templateId,
+    subject: 'Someone shared encouragement with you'
+  };
+  
   try {
-    const data = await ghlServicesRequest('/conversations/messages', {
+    console.log(`[GHL] Trying rest.gohighlevel.com endpoint...`);
+    const data = await ghlRequest('/conversations/messages', {
       method: 'POST',
-      body: JSON.stringify({
-        type: 'Email',
-        contactId: contactId,
-        templateId: templateId,
-        subject: 'Someone shared encouragement with you'
-      })
+      body: JSON.stringify(emailPayload)
     });
     
     console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
     return data;
   } catch (error) {
-    // If services endpoint fails, try the rest.gohighlevel.com endpoint
-    if (error.message && (error.message.includes('404') || error.message.includes('Not found'))) {
-      console.log(`[GHL] Services endpoint failed, trying rest.gohighlevel.com endpoint...`);
+    // If rest endpoint fails with 404 or 401, try the services endpoint as fallback
+    if (error.message && (error.message.includes('404') || error.message.includes('Not found') || error.message.includes('401'))) {
+      console.log(`[GHL] Rest endpoint failed (${error.message}), trying services.leadconnectorhq.com endpoint...`);
       
-      const data = await ghlRequest('/conversations/messages', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: 'Email',
-          contactId: contactId,
-          templateId: templateId,
-          subject: 'Someone shared encouragement with you'
-        })
-      });
-      
-      console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
-      return data;
+      try {
+        const data = await ghlServicesRequest('/conversations/messages', {
+          method: 'POST',
+          body: JSON.stringify(emailPayload)
+        });
+        
+        console.log(`[GHL] Email template sent successfully to contact: ${contactId} via services endpoint`);
+        return data;
+      } catch (servicesError) {
+        // If both fail, throw the original error from rest endpoint
+        console.error(`[GHL] Both endpoints failed. Rest error: ${error.message}, Services error: ${servicesError.message}`);
+        throw error;
+      }
     }
     
-    // Re-throw if it's not a 404
+    // Re-throw if it's not a 404 or 401
     throw error;
   }
 }
