@@ -1,6 +1,7 @@
 // GoHighLevel API Helper Functions
 
 const GHL_API_BASE = 'https://rest.gohighlevel.com/v1';
+const GHL_SERVICES_BASE = 'https://services.leadconnectorhq.com';
 const GHL_API_KEY = process.env.GHL_API_KEY;
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
 
@@ -284,71 +285,122 @@ async function addTagsToContact(contactId, tags) {
   return updatedContact;
 }
 
+// Helper function to make API requests to services endpoint
+async function ghlServicesRequest(endpoint, options = {}) {
+  if (!GHL_API_KEY) {
+    throw new Error('GHL_API_KEY environment variable is not set. Please configure it in Vercel project settings → Environment Variables.');
+  }
+
+  const url = `${GHL_SERVICES_BASE}${endpoint}`;
+  
+  const headers = {
+    'Authorization': `Bearer ${GHL_API_KEY}`,
+    'Content-Type': 'application/json',
+    'Version': '2021-07-28',
+    ...options.headers
+  };
+
+  console.log(`[GHL Services API] ${options.method || 'GET'} ${endpoint}`);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      
+      console.error(`[GHL Services API] Error ${response.status}:`, errorData);
+      
+      // Provide more helpful error messages
+      if (response.status === 401) {
+        const error = new Error(`GHL API Authentication Failed (401): ${errorData.msg || errorData.message || 'Invalid API key'}. Please verify your GHL_API_KEY in Vercel environment variables.`);
+        error.code = 'AUTH_ERROR';
+        error.status = 401;
+        throw error;
+      }
+      
+      throw new Error(`GHL Services API Error: ${response.status} - ${errorData.msg || errorData.message || response.statusText}`);
+    }
+
+    // Check if response has content and try to parse as JSON
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text();
+    
+    // If no content, return success indicator
+    if (!responseText || responseText.trim() === '') {
+      return { success: true };
+    }
+    
+    // If content-type indicates JSON, parse it
+    if (contentType.includes('application/json')) {
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
+      }
+    }
+    
+    // For non-JSON responses, return as text
+    return { 
+      success: true, 
+      message: responseText,
+      raw: responseText 
+    };
+  } catch (error) {
+    console.error(`[GHL Services API] Request failed:`, error.message);
+    throw error;
+  }
+}
+
 // Send email to contact using a template
 async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
-  if (!GHL_LOCATION_ID) {
-    console.warn(`[GHL] Warning: GHL_LOCATION_ID not set. Some endpoints may require it.`);
-  }
-  
-  // Try different endpoint patterns
-  const endpoints = [];
-  
-  // If locationId is available, try location-specific endpoints first
-  if (GHL_LOCATION_ID) {
-    endpoints.push({
-      path: `/locations/${GHL_LOCATION_ID}/emails/template`,
-      body: { contactId, templateId }
+  // Use the correct GHL API endpoint for sending emails
+  // Try services.leadconnectorhq.com first (newer API)
+  try {
+    const data = await ghlServicesRequest('/conversations/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'Email',
+        contactId: contactId,
+        templateId: templateId,
+        subject: 'Someone shared encouragement with you'
+      })
     });
-    endpoints.push({
-      path: `/locations/${GHL_LOCATION_ID}/conversations/message/template`,
-      body: { contactId, templateId }
-    });
-  }
-  
-  // Try general endpoints
-  endpoints.push({
-    path: '/emails/template',
-    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
-  });
-  endpoints.push({
-    path: '/conversations/message/template',
-    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
-  });
-  
-  // Try campaigns endpoint (alternative approach)
-  endpoints.push({
-    path: '/campaigns/template',
-    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
-  });
-  
-  let lastError = null;
-  
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`[GHL] Trying endpoint: ${endpoint.path}`);
-      const data = await ghlRequest(endpoint.path, {
+    
+    console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
+    return data;
+  } catch (error) {
+    // If services endpoint fails, try the rest.gohighlevel.com endpoint
+    if (error.message && (error.message.includes('404') || error.message.includes('Not found'))) {
+      console.log(`[GHL] Services endpoint failed, trying rest.gohighlevel.com endpoint...`);
+      
+      const data = await ghlRequest('/conversations/messages', {
         method: 'POST',
-        body: JSON.stringify(endpoint.body)
+        body: JSON.stringify({
+          type: 'Email',
+          contactId: contactId,
+          templateId: templateId,
+          subject: 'Someone shared encouragement with you'
+        })
       });
       
-      console.log(`[GHL] Email template sent successfully to contact: ${contactId} via ${endpoint.path}`);
+      console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
       return data;
-    } catch (error) {
-      lastError = error;
-      // If it's a 404, try next endpoint
-      if (error.message && error.message.includes('404')) {
-        console.log(`[GHL] Endpoint ${endpoint.path} returned 404, trying next...`);
-        continue;
-      }
-      // If it's not a 404, re-throw immediately
-      throw error;
     }
+    
+    // Re-throw if it's not a 404
+    throw error;
   }
-  
-  // If all endpoints failed with 404
-  throw new Error(`All email template endpoints returned 404. Please verify the template ID (${templateId}) and that GHL_LOCATION_ID is set correctly. Last error: ${lastError?.message || 'Unknown error'}`);
 }
 
 // Send email template to contact by email
