@@ -169,6 +169,10 @@ export default async function handler(req, res) {
         tyg_subscribedailyhug: submissionData.subscribeDailyHug ? 'true' : 'false'
       });
 
+      // Step 6: Add tag to recipient contact
+      console.log('[TYG Form] Adding tag to recipient contact...');
+      await addTagsToContact(recipientContact.id, 'tyg--> recipient');
+
       console.log('[TYG Form] All GHL operations completed successfully:', {
         senderContactId: senderContact.id,
         recipientContactId: recipientContact.id

@@ -130,7 +130,8 @@ Handles form submissions from the TYG form.
 3. Adds the tag "tyg--> sender" to the sender contact
 4. Creates a contact in GoHighLevel for the recipient
 5. Updates the recipient contact with custom fields containing form data
-6. Logs all actions to the console
+6. Adds the tag "tyg--> recipient" to the recipient contact
+7. Logs all actions to the console
 
 **Custom Fields Saved to Both Contacts**:
 - `tyg_recipientname` - Recipient's name
