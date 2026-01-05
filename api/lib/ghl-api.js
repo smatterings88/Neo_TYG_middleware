@@ -441,7 +441,48 @@ async function sendEmailTemplate(contactId, templateId) {
     })
   });
   
-  // Try rest endpoint with locationId in path
+  // Try rest endpoint alternatives that work with API keys
+  // Try campaigns/send endpoint
+  if (GHL_LOCATION_ID) {
+    endpoints.push({
+      name: 'rest.gohighlevel.com campaigns/send',
+      request: () => ghlRequest(`/campaigns/send`, {
+        method: 'POST',
+        body: JSON.stringify({
+          locationId: GHL_LOCATION_ID,
+          contactId: contactId,
+          templateId: templateId
+        })
+      })
+    });
+  }
+  
+  // Try emails/send endpoint
+  endpoints.push({
+    name: 'rest.gohighlevel.com emails/send',
+    request: () => ghlRequest('/emails/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        contactId: contactId,
+        templateId: templateId,
+        ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
+      })
+    })
+  });
+  
+  // Try conversations endpoint without locationId in path
+  endpoints.push({
+    name: 'rest.gohighlevel.com conversations/messages',
+    request: () => ghlRequest('/conversations/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...emailPayload,
+        ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
+      })
+    })
+  });
+  
+  // Try rest endpoint with locationId in path (last resort)
   if (GHL_LOCATION_ID) {
     endpoints.push({
       name: 'rest.gohighlevel.com with locationId in path',
