@@ -288,16 +288,41 @@ async function addTagsToContact(contactId, tags) {
 async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
-  const data = await ghlRequest('/conversations/message/template', {
-    method: 'POST',
-    body: JSON.stringify({
-      contactId: contactId,
-      templateId: templateId
-    })
-  });
-  
-  console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
-  return data;
+  // GHL API endpoint for sending template emails
+  // Try the emails/template endpoint first (most common)
+  try {
+    const data = await ghlRequest('/emails/template', {
+      method: 'POST',
+      body: JSON.stringify({
+        contactId: contactId,
+        templateId: templateId,
+        ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
+      })
+    });
+    
+    console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
+    return data;
+  } catch (error) {
+    // If emails/template fails, try conversations endpoint
+    if (error.message && error.message.includes('404')) {
+      console.log(`[GHL] emails/template endpoint not found, trying conversations endpoint...`);
+      
+      const convData = await ghlRequest('/conversations/message/template', {
+        method: 'POST',
+        body: JSON.stringify({
+          contactId: contactId,
+          templateId: templateId,
+          ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
+        })
+      });
+      
+      console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
+      return convData;
+    }
+    
+    // Re-throw if it's not a 404
+    throw error;
+  }
 }
 
 // Send email template to contact by email
