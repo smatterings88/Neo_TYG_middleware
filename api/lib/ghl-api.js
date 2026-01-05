@@ -365,21 +365,23 @@ async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
   // Use the correct GHL API endpoint for sending emails
-  // The endpoint is /conversations/messages/email (with /email at the end)
+  // Try /conversations/messages (without /email) with type: 'Email' in body
   const emailPayload = {
+    type: 'Email',
     contactId: contactId,
-    templateId: templateId
+    templateId: templateId,
+    subject: 'Someone shared encouragement with you'
   };
   
   // Try different endpoint patterns
   const endpoints = [];
   
-  // Try services endpoint with locationId in header (most likely to work)
+  // Try services endpoint with locationId in header and full payload
   if (GHL_LOCATION_ID) {
     endpoints.push({
       name: 'services.leadconnectorhq.com with locationId header',
       request: async () => {
-        const url = `${GHL_SERVICES_BASE}/conversations/messages/email`;
+        const url = `${GHL_SERVICES_BASE}/conversations/messages`;
         const headers = {
           'Authorization': `Bearer ${GHL_API_KEY}`,
           'Content-Type': 'application/json',
@@ -387,7 +389,7 @@ async function sendEmailTemplate(contactId, templateId) {
           'locationId': GHL_LOCATION_ID
         };
         
-        console.log(`[GHL Services API] POST /conversations/messages/email`);
+        console.log(`[GHL Services API] POST /conversations/messages`);
         
         const response = await fetch(url, {
           method: 'POST',
@@ -433,11 +435,22 @@ async function sendEmailTemplate(contactId, templateId) {
   // Try services endpoint without locationId in header
   endpoints.push({
     name: 'services.leadconnectorhq.com',
-    request: () => ghlServicesRequest('/conversations/messages/email', {
+    request: () => ghlServicesRequest('/conversations/messages', {
       method: 'POST',
       body: JSON.stringify(emailPayload)
     })
   });
+  
+  // Try rest endpoint with locationId in path
+  if (GHL_LOCATION_ID) {
+    endpoints.push({
+      name: 'rest.gohighlevel.com with locationId in path',
+      request: () => ghlRequest(`/locations/${GHL_LOCATION_ID}/conversations/messages`, {
+        method: 'POST',
+        body: JSON.stringify(emailPayload)
+      })
+    });
+  }
   
   let lastError = null;
   
@@ -461,7 +474,7 @@ async function sendEmailTemplate(contactId, templateId) {
   }
   
   // If all endpoints failed
-  throw new Error(`All email endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify the template ID (${templateId}) and API configuration.`);
+  throw new Error(`All email endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify the template ID (${templateId}) and API configuration. If you're getting 401 errors, you may need to use an OAuth token instead of an API key for the services endpoint.`);
 }
 
 // Send email template to contact by email
