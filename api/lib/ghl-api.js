@@ -514,8 +514,33 @@ async function sendEmailTemplate(contactId, templateId) {
     }
   }
   
-  // If all endpoints failed
-  throw new Error(`All email endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify the template ID (${templateId}) and API configuration. If you're getting 401 errors, you may need to use an OAuth token instead of an API key for the services endpoint.`);
+  // If all endpoints failed, provide helpful error message
+  const has401Error = lastError?.message?.includes('401') || lastError?.message?.includes('Invalid JWT');
+  const has404Error = lastError?.message?.includes('404') || lastError?.message?.includes('Not found');
+  
+  if (has401Error) {
+    throw new Error(`Email sending requires OAuth token authentication. The services.leadconnectorhq.com endpoint requires an OAuth token (JWT), not an API key. Please:
+1. Go to GHL → Settings → Integrations → OAuth
+2. Create an OAuth app and get an OAuth token
+3. Update GHL_API_KEY in Vercel with the OAuth token
+4. Redeploy the application
+
+Alternatively, check GHL API documentation for the correct rest API endpoint for sending template emails with API keys.`);
+  }
+  
+  if (has404Error) {
+    throw new Error(`All email endpoints returned 404. The rest.gohighlevel.com API does not appear to have an endpoint for sending template emails with API keys. 
+    
+To send emails via template, you need to:
+1. Use the services.leadconnectorhq.com endpoint (requires OAuth token)
+2. Or find the correct rest API endpoint in GHL documentation
+
+Template ID: ${templateId}
+Contact ID: ${contactId}
+Last error: ${lastError?.message || 'Unknown error'}`);
+  }
+  
+  throw new Error(`All email endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify the template ID (${templateId}) and API configuration.`);
 }
 
 // Send email template to contact by email
