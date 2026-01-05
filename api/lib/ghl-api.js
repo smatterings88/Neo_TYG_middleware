@@ -615,6 +615,126 @@ async function sendEmailTemplateByEmail(email, templateId) {
   return await sendEmailTemplate(contact.id, templateId);
 }
 
+// List all email templates
+async function listEmailTemplates() {
+  console.log(`[GHL] Fetching email templates...`);
+  
+  if (!GHL_OAUTH_TOKEN) {
+    throw new Error('GHL_OAUTH_TOKEN is required to list email templates. Please configure it in Vercel environment variables.');
+  }
+  
+  // Try different endpoint patterns for listing templates
+  const endpoints = [
+    '/conversations/templates',
+    '/templates',
+    '/email-templates',
+    '/campaigns/templates'
+  ];
+  
+  // If locationId is available, try location-specific endpoints first
+  if (GHL_LOCATION_ID) {
+    endpoints.unshift(`/locations/${GHL_LOCATION_ID}/conversations/templates`);
+    endpoints.unshift(`/locations/${GHL_LOCATION_ID}/templates`);
+  }
+  
+  let lastError = null;
+  
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${GHL_SERVICES_BASE}${endpoint}`;
+      const headers = {
+        'Authorization': `Bearer ${GHL_OAUTH_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Version': '2021-07-28',
+        ...(GHL_LOCATION_ID && { 'locationId': GHL_LOCATION_ID })
+      };
+      
+      console.log(`[GHL] Trying endpoint: ${endpoint}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        if (response.status === 401) {
+          const error = new Error(`GHL API Authentication Failed (401): ${errorData.message || 'Invalid OAuth token'}`);
+          error.code = 'AUTH_ERROR';
+          error.status = 401;
+          throw error;
+        }
+        
+        // If 404, try next endpoint
+        if (response.status === 404) {
+          console.log(`[GHL] Endpoint ${endpoint} returned 404, trying next...`);
+          lastError = new Error(`Endpoint not found: ${endpoint}`);
+          continue;
+        }
+        
+        throw new Error(`GHL Services API Error: ${response.status} - ${errorData.message || response.statusText}`);
+      }
+      
+      const contentType = response.headers.get('content-type') || '';
+      const responseText = await response.text();
+      
+      if (!responseText || responseText.trim() === '') {
+        return { templates: [] };
+      }
+      
+      let data;
+      if (contentType.includes('application/json')) {
+        data = JSON.parse(responseText);
+      } else {
+        data = { message: responseText };
+      }
+      
+      // Extract templates from different possible response structures
+      let templates = [];
+      if (data.templates && Array.isArray(data.templates)) {
+        templates = data.templates;
+      } else if (data.template && Array.isArray(data.template)) {
+        templates = data.template;
+      } else if (Array.isArray(data)) {
+        templates = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        templates = data.data;
+      }
+      
+      // Format templates to include name and id
+      const formattedTemplates = templates.map(template => ({
+        id: template.id || template._id || template.templateId,
+        name: template.name || template.templateName || template.subject || 'Unnamed Template',
+        subject: template.subject || template.name || '',
+        type: template.type || 'email',
+        ...(template.createdAt && { createdAt: template.createdAt }),
+        ...(template.updatedAt && { updatedAt: template.updatedAt })
+      }));
+      
+      console.log(`[GHL] Found ${formattedTemplates.length} email templates`);
+      return { templates: formattedTemplates, count: formattedTemplates.length };
+    } catch (error) {
+      lastError = error;
+      // If it's a 404, try next endpoint
+      if (error.message && error.message.includes('404')) {
+        continue;
+      }
+      // If it's not a 404, re-throw immediately
+      throw error;
+    }
+  }
+  
+  // If all endpoints failed
+  throw new Error(`All template listing endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify your OAuth token and location ID.`);
+}
+
 export {
   searchContactByEmail,
   createContact,
@@ -625,6 +745,7 @@ export {
   deleteContactByEmail,
   addTagsToContact,
   sendEmailTemplate,
-  sendEmailTemplateByEmail
+  sendEmailTemplateByEmail,
+  listEmailTemplates
 };
 

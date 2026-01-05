@@ -160,6 +160,43 @@ Health check endpoint.
 }
 ```
 
+### GET `/api/list_templates`
+
+Lists all email templates available in GoHighLevel with their names and IDs. Requires OAuth token.
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "message": "Templates retrieved successfully",
+  "data": {
+    "templates": [
+      {
+        "id": "6957be6d9f487e131420364b",
+        "name": "Thank You Gram Template",
+        "subject": "Someone shared encouragement with you",
+        "type": "email"
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+**Error Response** (401):
+```json
+{
+  "success": false,
+  "message": "Authentication error",
+  "error": "Invalid or missing OAuth token. Please verify GHL_OAUTH_TOKEN in Vercel environment variables."
+}
+```
+
+**Usage**:
+- `GET https://your-project.vercel.app/api/list_templates`
+
+**Note**: This endpoint requires `GHL_OAUTH_TOKEN` to be configured. Use this to find the correct template ID for email sending.
+
 ### POST/GET `/api/send_anonymous_tyg`
 
 Sends an anonymous TYG email to a contact using a GHL email template. Designed to be called from GHL webhooks.
