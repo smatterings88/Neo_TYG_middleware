@@ -14,17 +14,25 @@ npm install
    **⚠️ IMPORTANT**: The function will fail without these environment variables!
    
    - `GHL_API_KEY` - Your GoHighLevel API key (**required**)
+     - Used for: Contacts, custom fields, tags, and other operations
+   - `GHL_OAUTH_TOKEN` - Your GoHighLevel OAuth token (JWT) (**required for email sending**)
+     - Used for: Sending emails via template
+     - Get this from: Settings → Integrations → OAuth
    - `GHL_LOCATION_ID` - Your GoHighLevel location ID (optional but recommended)
    
    **Steps to set environment variables in Vercel**:
    1. Go to your Vercel project dashboard
    2. Navigate to **Settings** → **Environment Variables**
-   3. Add a new variable:
+   3. Add `GHL_API_KEY`:
       - **Name**: `GHL_API_KEY`
       - **Value**: Your GoHighLevel API key
       - **Environment**: Select all (Production, Preview, Development)
-   4. (Optional) Add `GHL_LOCATION_ID` if you have one
-   5. **Redeploy your project** after adding environment variables
+   4. Add `GHL_OAUTH_TOKEN` (for email sending):
+      - **Name**: `GHL_OAUTH_TOKEN`
+      - **Value**: Your GoHighLevel OAuth token (JWT)
+      - **Environment**: Select all (Production, Preview, Development)
+   5. (Optional) Add `GHL_LOCATION_ID` if you have one
+   6. **Redeploy your project** after adding environment variables
       - Go to **Deployments** tab
       - Click the three dots on the latest deployment
       - Select **Redeploy**
@@ -34,6 +42,13 @@ npm install
    - Go to **Settings** → **Integrations** → **API**
    - Create a new API key with **Contacts: Read, Write** permissions
    - Copy the key (it won't be shown again)
+   
+   **Getting your GoHighLevel OAuth Token** (for email sending):
+   - Log into your GoHighLevel account
+   - Go to **Settings** → **Integrations** → **OAuth**
+   - Create a new OAuth app (if you don't have one)
+   - Get the OAuth token (JWT format, usually starts with `eyJ...`)
+   - Copy the token
 
 3. Create custom fields in GoHighLevel:
    The following custom fields must exist in your GHL account:

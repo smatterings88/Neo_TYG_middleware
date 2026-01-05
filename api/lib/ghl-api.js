@@ -3,6 +3,7 @@
 const GHL_API_BASE = 'https://rest.gohighlevel.com/v1';
 const GHL_SERVICES_BASE = 'https://services.leadconnectorhq.com';
 const GHL_API_KEY = process.env.GHL_API_KEY;
+const GHL_OAUTH_TOKEN = process.env.GHL_OAUTH_TOKEN; // OAuth token (JWT) for services endpoint
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
 
 // Helper function to make API requests
@@ -376,20 +377,76 @@ async function sendEmailTemplate(contactId, templateId) {
   // Try different endpoint patterns
   const endpoints = [];
   
-  // Try services endpoint with locationId in header and full payload
-  if (GHL_LOCATION_ID) {
+  // Try services endpoint with OAuth token (if available)
+  if (GHL_OAUTH_TOKEN) {
+    // Try services endpoint with locationId in header and OAuth token
+    if (GHL_LOCATION_ID) {
+      endpoints.push({
+        name: 'services.leadconnectorhq.com with locationId header (OAuth)',
+        request: async () => {
+          const url = `${GHL_SERVICES_BASE}/conversations/messages`;
+          const headers = {
+            'Authorization': `Bearer ${GHL_OAUTH_TOKEN}`,
+            'Content-Type': 'application/json',
+            'Version': '2021-07-28',
+            'locationId': GHL_LOCATION_ID
+          };
+          
+          console.log(`[GHL Services API] POST /conversations/messages (using OAuth token)`);
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(emailPayload)
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { message: errorText };
+            }
+            
+            if (response.status === 401) {
+              const error = new Error(`GHL API Authentication Failed (401): ${errorData.message || 'Invalid OAuth token'}`);
+              error.code = 'AUTH_ERROR';
+              error.status = 401;
+              throw error;
+            }
+            
+            throw new Error(`GHL Services API Error: ${response.status} - ${errorData.message || response.statusText}`);
+          }
+          
+          const contentType = response.headers.get('content-type') || '';
+          const responseText = await response.text();
+          
+          if (!responseText || responseText.trim() === '') {
+            return { success: true };
+          }
+          
+          if (contentType.includes('application/json')) {
+            return JSON.parse(responseText);
+          }
+          
+          return { success: true, message: responseText };
+        }
+      });
+    }
+    
+    // Try services endpoint without locationId in header (OAuth token)
     endpoints.push({
-      name: 'services.leadconnectorhq.com with locationId header',
+      name: 'services.leadconnectorhq.com (OAuth)',
       request: async () => {
         const url = `${GHL_SERVICES_BASE}/conversations/messages`;
         const headers = {
-          'Authorization': `Bearer ${GHL_API_KEY}`,
+          'Authorization': `Bearer ${GHL_OAUTH_TOKEN}`,
           'Content-Type': 'application/json',
-          'Version': '2021-07-28',
-          'locationId': GHL_LOCATION_ID
+          'Version': '2021-07-28'
         };
         
-        console.log(`[GHL Services API] POST /conversations/messages`);
+        console.log(`[GHL Services API] POST /conversations/messages (using OAuth token)`);
         
         const response = await fetch(url, {
           method: 'POST',
@@ -407,7 +464,7 @@ async function sendEmailTemplate(contactId, templateId) {
           }
           
           if (response.status === 401) {
-            const error = new Error(`GHL API Authentication Failed (401): ${errorData.message || 'Invalid API key'}`);
+            const error = new Error(`GHL API Authentication Failed (401): ${errorData.message || 'Invalid OAuth token'}`);
             error.code = 'AUTH_ERROR';
             error.status = 401;
             throw error;
@@ -431,15 +488,6 @@ async function sendEmailTemplate(contactId, templateId) {
       }
     });
   }
-  
-  // Try services endpoint without locationId in header
-  endpoints.push({
-    name: 'services.leadconnectorhq.com',
-    request: () => ghlServicesRequest('/conversations/messages', {
-      method: 'POST',
-      body: JSON.stringify(emailPayload)
-    })
-  });
   
   // Try rest endpoint alternatives that work with API keys
   // Try campaigns/send endpoint
@@ -522,8 +570,9 @@ async function sendEmailTemplate(contactId, templateId) {
     throw new Error(`Email sending requires OAuth token authentication. The services.leadconnectorhq.com endpoint requires an OAuth token (JWT), not an API key. Please:
 1. Go to GHL → Settings → Integrations → OAuth
 2. Create an OAuth app and get an OAuth token
-3. Update GHL_API_KEY in Vercel with the OAuth token
-4. Redeploy the application
+3. Add GHL_OAUTH_TOKEN environment variable in Vercel with the OAuth token
+4. Keep GHL_API_KEY for other operations (contacts, custom fields, etc.)
+5. Redeploy the application
 
 Alternatively, check GHL API documentation for the correct rest API endpoint for sending template emails with API keys.`);
   }
