@@ -365,40 +365,75 @@ async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
   // Use the correct GHL API endpoint for sending emails
+  // The endpoint is /conversations/messages/email (with /email at the end)
   const emailPayload = {
-    type: 'Email',
     contactId: contactId,
-    templateId: templateId,
-    subject: 'Someone shared encouragement with you'
+    templateId: templateId
   };
   
   // Try different endpoint patterns
   const endpoints = [];
   
-  // If locationId is available, try location-specific endpoint first
+  // Try services endpoint with locationId in header (most likely to work)
   if (GHL_LOCATION_ID) {
     endpoints.push({
-      name: 'rest with locationId in path',
-      request: () => ghlRequest(`/locations/${GHL_LOCATION_ID}/conversations/messages`, {
-        method: 'POST',
-        body: JSON.stringify(emailPayload)
-      })
+      name: 'services.leadconnectorhq.com with locationId header',
+      request: async () => {
+        const url = `${GHL_SERVICES_BASE}/conversations/messages/email`;
+        const headers = {
+          'Authorization': `Bearer ${GHL_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Version': '2021-07-28',
+          'locationId': GHL_LOCATION_ID
+        };
+        
+        console.log(`[GHL Services API] POST /conversations/messages/email`);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(emailPayload)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { message: errorText };
+          }
+          
+          if (response.status === 401) {
+            const error = new Error(`GHL API Authentication Failed (401): ${errorData.message || 'Invalid API key'}`);
+            error.code = 'AUTH_ERROR';
+            error.status = 401;
+            throw error;
+          }
+          
+          throw new Error(`GHL Services API Error: ${response.status} - ${errorData.message || response.statusText}`);
+        }
+        
+        const contentType = response.headers.get('content-type') || '';
+        const responseText = await response.text();
+        
+        if (!responseText || responseText.trim() === '') {
+          return { success: true };
+        }
+        
+        if (contentType.includes('application/json')) {
+          return JSON.parse(responseText);
+        }
+        
+        return { success: true, message: responseText };
+      }
     });
   }
   
-  // Try general rest endpoint
-  endpoints.push({
-    name: 'rest.gohighlevel.com',
-    request: () => ghlRequest('/conversations/messages', {
-      method: 'POST',
-      body: JSON.stringify(emailPayload)
-    })
-  });
-  
-  // Try services endpoint (may need different auth)
+  // Try services endpoint without locationId in header
   endpoints.push({
     name: 'services.leadconnectorhq.com',
-    request: () => ghlServicesRequest('/conversations/messages', {
+    request: () => ghlServicesRequest('/conversations/messages/email', {
       method: 'POST',
       body: JSON.stringify(emailPayload)
     })
