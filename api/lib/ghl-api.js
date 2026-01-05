@@ -624,23 +624,30 @@ async function listEmailTemplates() {
   }
   
   // Try different endpoint patterns for listing templates
-  const endpoints = [
-    '/conversations/templates',
-    '/templates',
-    '/email-templates',
-    '/campaigns/templates'
-  ];
+  const endpoints = [];
   
   // If locationId is available, try location-specific endpoints first
   if (GHL_LOCATION_ID) {
-    endpoints.unshift(`/locations/${GHL_LOCATION_ID}/conversations/templates`);
-    endpoints.unshift(`/locations/${GHL_LOCATION_ID}/templates`);
+    endpoints.push(`/locations/${GHL_LOCATION_ID}/conversations/templates`);
+    endpoints.push(`/locations/${GHL_LOCATION_ID}/templates`);
+    endpoints.push(`/locations/${GHL_LOCATION_ID}/email-templates`);
+    endpoints.push(`/locations/${GHL_LOCATION_ID}/campaigns/templates`);
   }
   
+  // Try general endpoints
+  endpoints.push('/conversations/templates');
+  endpoints.push('/templates');
+  endpoints.push('/email-templates');
+  endpoints.push('/campaigns/templates');
+  endpoints.push('/templates/email');
+  endpoints.push('/email/templates');
+  
   let lastError = null;
+  let lastSuccessfulResponse = null;
   
   for (const endpoint of endpoints) {
     try {
+      // Try services endpoint first
       const url = `${GHL_SERVICES_BASE}${endpoint}`;
       const headers = {
         'Authorization': `Bearer ${GHL_OAUTH_TOKEN}`,
@@ -649,7 +656,7 @@ async function listEmailTemplates() {
         ...(GHL_LOCATION_ID && { 'locationId': GHL_LOCATION_ID })
       };
       
-      console.log(`[GHL] Trying endpoint: ${endpoint}`);
+      console.log(`[GHL] Trying services endpoint: ${endpoint}`);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -696,6 +703,9 @@ async function listEmailTemplates() {
         data = { message: responseText };
       }
       
+      // Log the raw response for debugging
+      console.log(`[GHL] Response from ${endpoint}:`, JSON.stringify(data, null, 2).substring(0, 1000));
+      
       // Extract templates from different possible response structures
       let templates = [];
       if (data.templates && Array.isArray(data.templates)) {
@@ -706,6 +716,22 @@ async function listEmailTemplates() {
         templates = data;
       } else if (data.data && Array.isArray(data.data)) {
         templates = data.data;
+      } else if (data.items && Array.isArray(data.items)) {
+        templates = data.items;
+      } else if (data.results && Array.isArray(data.results)) {
+        templates = data.results;
+      } else if (data.emailTemplates && Array.isArray(data.emailTemplates)) {
+        templates = data.emailTemplates;
+      } else if (data.conversationTemplates && Array.isArray(data.conversationTemplates)) {
+        templates = data.conversationTemplates;
+      }
+      
+      // If we got a successful response but no templates, log the structure
+      if (templates.length === 0) {
+        console.log(`[GHL] No templates found in response from ${endpoint}. Response keys:`, Object.keys(data));
+        lastSuccessfulResponse = { endpoint, data };
+        // Continue to try next endpoint or rest API
+        continue;
       }
       
       // Format templates to include name and id
@@ -718,7 +744,7 @@ async function listEmailTemplates() {
         ...(template.updatedAt && { updatedAt: template.updatedAt })
       }));
       
-      console.log(`[GHL] Found ${formattedTemplates.length} email templates`);
+      console.log(`[GHL] Found ${formattedTemplates.length} email templates from ${endpoint}`);
       return { templates: formattedTemplates, count: formattedTemplates.length };
     } catch (error) {
       lastError = error;
@@ -731,7 +757,64 @@ async function listEmailTemplates() {
     }
   }
   
-  // If all endpoints failed
+  // If all services endpoints returned empty or failed, try rest API
+  console.log(`[GHL] Services endpoints returned empty or failed, trying rest API...`);
+  
+  if (GHL_LOCATION_ID) {
+    try {
+      const restUrl = `${GHL_API_BASE}/locations/${GHL_LOCATION_ID}/templates`;
+      const headers = {
+        'Authorization': `Bearer ${GHL_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Version': '2021-07-28'
+      };
+      
+      console.log(`[GHL] Trying rest API endpoint: /locations/${GHL_LOCATION_ID}/templates`);
+      
+      const response = await fetch(restUrl, {
+        method: 'GET',
+        headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[GHL] Rest API response:`, JSON.stringify(data, null, 2).substring(0, 1000));
+        
+        // Extract templates
+        let templates = [];
+        if (data.templates && Array.isArray(data.templates)) {
+          templates = data.templates;
+        } else if (Array.isArray(data)) {
+          templates = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          templates = data.data;
+        }
+        
+        if (templates.length > 0) {
+          const formattedTemplates = templates.map(template => ({
+            id: template.id || template._id || template.templateId,
+            name: template.name || template.templateName || template.subject || 'Unnamed Template',
+            subject: template.subject || template.name || '',
+            type: template.type || 'email',
+            ...(template.createdAt && { createdAt: template.createdAt }),
+            ...(template.updatedAt && { updatedAt: template.updatedAt })
+          }));
+          
+          console.log(`[GHL] Found ${formattedTemplates.length} email templates from rest API`);
+          return { templates: formattedTemplates, count: formattedTemplates.length };
+        }
+      }
+    } catch (restError) {
+      console.log(`[GHL] Rest API also failed:`, restError.message);
+    }
+  }
+  
+  // If all endpoints failed or returned empty
+  if (lastSuccessfulResponse) {
+    console.log(`[GHL] Last successful response was from ${lastSuccessfulResponse.endpoint} but contained no templates.`);
+    return { templates: [], count: 0, note: 'Endpoint responded successfully but no templates found. Check if templates exist in your GHL account.' };
+  }
+  
   throw new Error(`All template listing endpoints failed. Last error: ${lastError?.message || 'Unknown error'}. Please verify your OAuth token and location ID.`);
 }
 
