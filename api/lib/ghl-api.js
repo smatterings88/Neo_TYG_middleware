@@ -470,6 +470,14 @@ async function sendEmailTemplate(contactId, templateId) {
             throw error;
           }
           
+          // Handle template not found errors specifically
+          if (response.status === 500 && errorData.message && errorData.message.includes('Template')) {
+            const error = new Error(`Template Error: ${errorData.message}. Please verify the template ID (${templateId}) exists and is accessible in your GHL account.`);
+            error.code = 'TEMPLATE_ERROR';
+            error.status = 500;
+            throw error;
+          }
+          
           throw new Error(`GHL Services API Error: ${response.status} - ${errorData.message || response.statusText}`);
         }
         

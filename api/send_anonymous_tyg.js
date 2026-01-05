@@ -138,6 +138,19 @@ export default async function handler(req, res) {
         }
       });
     }
+    
+    // Handle template error
+    if (error.code === 'TEMPLATE_ERROR') {
+      return res.status(400).json({
+        success: false,
+        message: 'Template not found',
+        error: error.message,
+        data: {
+          templateId: EMAIL_TEMPLATE_ID,
+          targetEmail: targetEmail?.trim().toLowerCase()
+        }
+      });
+    }
 
     return res.status(500).json({
       success: false,
