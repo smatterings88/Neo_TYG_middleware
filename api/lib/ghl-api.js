@@ -624,39 +624,52 @@ async function listEmailTemplates() {
   }
   
   // Try different endpoint patterns for listing templates
+  // Based on GHL API: https://services.leadconnectorhq.com/templates/ with locationId in header
   const endpoints = [];
   
-  // If locationId is available, try location-specific endpoints first
+  // Primary endpoint: /templates/ with locationId in header (as per GHL API docs)
   if (GHL_LOCATION_ID) {
-    endpoints.push(`/locations/${GHL_LOCATION_ID}/conversations/templates`);
-    endpoints.push(`/locations/${GHL_LOCATION_ID}/templates`);
-    endpoints.push(`/locations/${GHL_LOCATION_ID}/email-templates`);
-    endpoints.push(`/locations/${GHL_LOCATION_ID}/campaigns/templates`);
+    endpoints.push({
+      path: '/templates/',
+      useLocationIdInHeader: true
+    });
   }
   
-  // Try general endpoints
-  endpoints.push('/conversations/templates');
-  endpoints.push('/templates');
-  endpoints.push('/email-templates');
-  endpoints.push('/campaigns/templates');
-  endpoints.push('/templates/email');
-  endpoints.push('/email/templates');
+  // Fallback: try without trailing slash
+  if (GHL_LOCATION_ID) {
+    endpoints.push({
+      path: '/templates',
+      useLocationIdInHeader: true
+    });
+  }
+  
+  // Try location-specific paths as fallback
+  if (GHL_LOCATION_ID) {
+    endpoints.push({
+      path: `/locations/${GHL_LOCATION_ID}/templates`,
+      useLocationIdInHeader: false
+    });
+  }
   
   let lastError = null;
   let lastSuccessfulResponse = null;
   
-  for (const endpoint of endpoints) {
+  for (const endpointConfig of endpoints) {
     try {
+      const endpoint = typeof endpointConfig === 'string' ? endpointConfig : endpointConfig.path;
+      const useLocationIdInHeader = typeof endpointConfig === 'object' ? endpointConfig.useLocationIdInHeader : true;
+      
       // Try services endpoint first
       const url = `${GHL_SERVICES_BASE}${endpoint}`;
       const headers = {
         'Authorization': `Bearer ${GHL_OAUTH_TOKEN}`,
-        'Content-Type': 'application/json',
         'Version': '2021-07-28',
-        ...(GHL_LOCATION_ID && { 'locationId': GHL_LOCATION_ID })
+        ...(useLocationIdInHeader && GHL_LOCATION_ID && { 'locationId': GHL_LOCATION_ID })
       };
       
-      console.log(`[GHL] Trying services endpoint: ${endpoint}`);
+      // Don't include Content-Type for GET requests (as per user's example)
+      
+      console.log(`[GHL] Trying services endpoint: ${endpoint}${useLocationIdInHeader && GHL_LOCATION_ID ? ' (with locationId in header)' : ''}`);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -726,12 +739,12 @@ async function listEmailTemplates() {
         templates = data.conversationTemplates;
       }
       
-      // If we got a successful response but no templates, log the structure
+      // If we got a successful response but no templates, return empty array
+      // The endpoint is working correctly, just no templates exist
       if (templates.length === 0) {
-        console.log(`[GHL] No templates found in response from ${endpoint}. Response keys:`, Object.keys(data));
-        lastSuccessfulResponse = { endpoint, data };
-        // Continue to try next endpoint or rest API
-        continue;
+        console.log(`[GHL] Endpoint ${endpoint} returned successfully but no templates found. Response:`, JSON.stringify(data, null, 2).substring(0, 500));
+        // Return empty array - this is a valid response (no templates in account)
+        return { templates: [], count: 0, note: 'No templates found in your GHL account for this location.' };
       }
       
       // Format templates to include name and id
