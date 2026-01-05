@@ -114,7 +114,16 @@ Handles form submissions from the TYG form.
 2. Updates the sender contact with custom fields containing form data
 3. Adds the tag "tyg--> sender" to the sender contact
 4. Creates a contact in GoHighLevel for the recipient
-5. Logs all actions to the console
+5. Updates the recipient contact with custom fields containing form data
+6. Logs all actions to the console
+
+**Custom Fields Saved to Both Contacts**:
+- `tyg_recipientname` - Recipient's name
+- `tyg_recipientemail` - Recipient's email
+- `tyg_message` - The message content
+- `tyg_sendername` - Sender's name
+- `tyg_sendanonymously` - "true" or "false"
+- `tyg_subscribedailyhug` - "true" or "false"
 
 **Error Response** (400):
 ```json

@@ -158,6 +158,17 @@ export default async function handler(req, res) {
         }
       );
 
+      // Step 5: Update recipient contact with custom fields
+      console.log('[TYG Form] Updating recipient contact custom fields...');
+      await updateContactCustomFields(recipientContact.id, {
+        tyg_recipientname: submissionData.recipientName,
+        tyg_recipientemail: submissionData.recipientEmail,
+        tyg_message: submissionData.message,
+        tyg_sendername: submissionData.senderName,
+        tyg_sendanonymously: submissionData.sendAnonymously ? 'true' : 'false',
+        tyg_subscribedailyhug: submissionData.subscribeDailyHug ? 'true' : 'false'
+      });
+
       console.log('[TYG Form] All GHL operations completed successfully:', {
         senderContactId: senderContact.id,
         recipientContactId: recipientContact.id
