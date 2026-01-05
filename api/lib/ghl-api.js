@@ -288,41 +288,67 @@ async function addTagsToContact(contactId, tags) {
 async function sendEmailTemplate(contactId, templateId) {
   console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
   
-  // GHL API endpoint for sending template emails
-  // Try the emails/template endpoint first (most common)
-  try {
-    const data = await ghlRequest('/emails/template', {
-      method: 'POST',
-      body: JSON.stringify({
-        contactId: contactId,
-        templateId: templateId,
-        ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
-      })
+  if (!GHL_LOCATION_ID) {
+    console.warn(`[GHL] Warning: GHL_LOCATION_ID not set. Some endpoints may require it.`);
+  }
+  
+  // Try different endpoint patterns
+  const endpoints = [];
+  
+  // If locationId is available, try location-specific endpoints first
+  if (GHL_LOCATION_ID) {
+    endpoints.push({
+      path: `/locations/${GHL_LOCATION_ID}/emails/template`,
+      body: { contactId, templateId }
     });
-    
-    console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
-    return data;
-  } catch (error) {
-    // If emails/template fails, try conversations endpoint
-    if (error.message && error.message.includes('404')) {
-      console.log(`[GHL] emails/template endpoint not found, trying conversations endpoint...`);
-      
-      const convData = await ghlRequest('/conversations/message/template', {
+    endpoints.push({
+      path: `/locations/${GHL_LOCATION_ID}/conversations/message/template`,
+      body: { contactId, templateId }
+    });
+  }
+  
+  // Try general endpoints
+  endpoints.push({
+    path: '/emails/template',
+    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
+  });
+  endpoints.push({
+    path: '/conversations/message/template',
+    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
+  });
+  
+  // Try campaigns endpoint (alternative approach)
+  endpoints.push({
+    path: '/campaigns/template',
+    body: { contactId, templateId, ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID }) }
+  });
+  
+  let lastError = null;
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[GHL] Trying endpoint: ${endpoint.path}`);
+      const data = await ghlRequest(endpoint.path, {
         method: 'POST',
-        body: JSON.stringify({
-          contactId: contactId,
-          templateId: templateId,
-          ...(GHL_LOCATION_ID && { locationId: GHL_LOCATION_ID })
-        })
+        body: JSON.stringify(endpoint.body)
       });
       
-      console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
-      return convData;
+      console.log(`[GHL] Email template sent successfully to contact: ${contactId} via ${endpoint.path}`);
+      return data;
+    } catch (error) {
+      lastError = error;
+      // If it's a 404, try next endpoint
+      if (error.message && error.message.includes('404')) {
+        console.log(`[GHL] Endpoint ${endpoint.path} returned 404, trying next...`);
+        continue;
+      }
+      // If it's not a 404, re-throw immediately
+      throw error;
     }
-    
-    // Re-throw if it's not a 404
-    throw error;
   }
+  
+  // If all endpoints failed with 404
+  throw new Error(`All email template endpoints returned 404. Please verify the template ID (${templateId}) and that GHL_LOCATION_ID is set correctly. Last error: ${lastError?.message || 'Unknown error'}`);
 }
 
 // Send email template to contact by email
