@@ -145,6 +145,58 @@ Health check endpoint.
 }
 ```
 
+### POST/GET `/api/send_anonymous_tyg`
+
+Sends an anonymous TYG email to a contact using a GHL email template. Designed to be called from GHL webhooks.
+
+**Request Parameters**:
+- `target_email` (required): Email address of the contact to send the email to
+  - Can be provided as query parameter: `?target_email=user@example.com`
+  - Or in request body (JSON or URL-encoded): `{ "target_email": "user@example.com" }`
+
+**Email Template**: Uses template ID `6957be6d9f487e131420364b`
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "message": "Email sent successfully",
+  "data": {
+    "targetEmail": "user@example.com",
+    "templateId": "6957be6d9f487e131420364b",
+    "sent": true
+  }
+}
+```
+
+**Not Found Response** (404):
+```json
+{
+  "success": false,
+  "message": "Contact not found",
+  "error": "Contact not found with email: user@example.com",
+  "data": {
+    "targetEmail": "user@example.com"
+  }
+}
+```
+
+**Error Response** (400):
+```json
+{
+  "success": false,
+  "message": "target_email parameter is required",
+  "error": "Please provide target_email in the query parameter (?target_email=...) or request body"
+}
+```
+
+**Usage Examples**:
+- GET: `https://your-project.vercel.app/api/send_anonymous_tyg?target_email=user@example.com`
+- POST (JSON): `POST /api/send_anonymous_tyg` with body `{ "target_email": "user@example.com" }`
+- POST (URL-encoded): `POST /api/send_anonymous_tyg` with body `target_email=user@example.com`
+
+**Note**: The contact must exist in GoHighLevel before the email can be sent. If the contact doesn't exist, a 404 error will be returned.
+
 ### POST/GET/DELETE `/api/TYG_delete_recipient`
 
 Deletes a contact from GoHighLevel by email address. Designed to be called from GHL webhooks.

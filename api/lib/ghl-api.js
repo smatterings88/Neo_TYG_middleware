@@ -284,6 +284,37 @@ async function addTagsToContact(contactId, tags) {
   return updatedContact;
 }
 
+// Send email to contact using a template
+async function sendEmailTemplate(contactId, templateId) {
+  console.log(`[GHL] Sending email template to contact: ${contactId}, template: ${templateId}`);
+  
+  const data = await ghlRequest('/conversations/message/template', {
+    method: 'POST',
+    body: JSON.stringify({
+      contactId: contactId,
+      templateId: templateId
+    })
+  });
+  
+  console.log(`[GHL] Email template sent successfully to contact: ${contactId}`);
+  return data;
+}
+
+// Send email template to contact by email
+async function sendEmailTemplateByEmail(email, templateId) {
+  console.log(`[GHL] Sending email template to contact by email: ${email}, template: ${templateId}`);
+  
+  // First, find the contact by email
+  const contact = await searchContactByEmail(email);
+  
+  if (!contact) {
+    throw new Error(`Contact not found with email: ${email}`);
+  }
+  
+  // Send the email template
+  return await sendEmailTemplate(contact.id, templateId);
+}
+
 export {
   searchContactByEmail,
   createContact,
@@ -292,6 +323,8 @@ export {
   getCustomFieldDefinitions,
   deleteContact,
   deleteContactByEmail,
-  addTagsToContact
+  addTagsToContact,
+  sendEmailTemplate,
+  sendEmailTemplateByEmail
 };
 
